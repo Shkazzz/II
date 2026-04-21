@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПрофИТ: ИИ помощник</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <!-- Модальное окно авторизации -->
+    <div id="authModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-lock"></i> Авторизация</h2>
+                <button class="close-btn" onclick="hideAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="text" id="loginInput" class="form-input" placeholder="Введите логин">
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" id="passwordInput" class="form-input" placeholder="Введите пароль">
+                </div>
+                <div id="authMessage" class="auth-message" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAuthModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="performLogin()">Войти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно удаления чата -->
+    <div id="deleteModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-trash-alt"></i> Удаление чата</h2>
+                <button class="close-btn" onclick="hideDeleteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить чат <strong id="deleteChatName"></strong>?</p>
+                <p class="warning-text">Это действие нельзя отменить.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideDeleteModal()">Отмена</button>
+                <button class="btn btn-danger" onclick="confirmDeleteChat()">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно настроек -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Настройки системы</h2>
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Внешний вид</h3>
+                    <div class="form-group">
+                        <label>Тема интерфейса:</label>
+                        <div class="theme-switcher-inline">
+                            <button id="lightThemeBtnSettings" class="theme-btn-inline active" onclick="setTheme('light')">
+                                <i class="fas fa-sun"></i> Светлая
+                            </button>
+                            <button id="darkThemeBtnSettings" class="theme-btn-inline" onclick="setTheme('dark')">
+                                <i class="fas fa-moon"></i> Темная
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Размер шрифта:</label>
+                        <div class="slider-container">
+                            <span>14px</span>
+                            <input type="range" class="slider" min="12" max="20" value="14" oninput="document.documentElement.style.setProperty('--font-size', this.value + 'px')">
+                            <span>20px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Параметры модели</h3>
+                    <p>Настройте параметры генерации для каждой модели</p>
+                    <div id="serverSettingsContainer">Загрузка настроек с сервера...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="saveServerSettings()">Сохранить параметры модели</button>
+                <button class="btn btn-secondary" onclick="closeSettings()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <h1>ПрофИТ: ИИ помощник</h1>
+                <div class="subtitle">Интеллектуальная система обработки запросов</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="status-text" id="statusText">Загрузка...</span>
+            </div>
+            <div class="header-controls">
+                <button class="settings-btn" onclick="showSettings()" title="Настройки">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div id="authInfo"></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Боковая панель чатов -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="createNewChat()">
+                    <i class="fas fa-plus"></i> Новая беседа
+                </button>
+                <div class="header-buttons">
+                    <button class="collapse-sidebar-btn" onclick="toggleChatsSidebar()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chats-container">
+                <div id="emptyChatsMessage" class="empty-chats">
+                    <p>Нет сохраненных бесед</p>
+                    <small>Создайте новую беседу, чтобы начать диалог</small>
+                </div>
+                <div id="chatsList" class="chats-list"></div>
+            </div>
+        </aside>
+
+        <!-- Основная область чата -->
+        <main class="chat-main">
+            <div class="chat-header">
+                <div class="chat-title-section">
+                    <h2 id="currentChatTitle">Новый чат</h2>
+                    <div class="model-selector">
+                        <label for="modelSelect">Модель:</label>
+                        <select id="modelSelect" class="model-select">
+                            <option value="">Загрузка моделей...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" onclick="clearChat()" title="Очистить чат">
+                        <i class="fas fa-broom"></i>
+                    </button>
+                    <button class="action-btn" onclick="exportChat()" title="Экспорт чата">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="messages-container" id="chatContainer"></div>
+                
+                <!-- Превью файлов -->
+                <div id="filePreview" class="file-preview" style="display: none;"></div>
+
+                <div class="input-container">
+                    <div class="input-area">
+                        <textarea id="messageInput" class="message-input" placeholder="Введите ваше сообщение..." rows="1"></textarea>
+                        <div class="input-buttons-right">
+                            <button class="send-btn" id="sendButton" onclick="sendMessage()">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button class="attach-btn" onclick="attachFile()" title="Прикрепить файл">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+<div class="input-disclaimer">
+        Содержимое, созданное ИИ, может быть неточным.
+    </div>
+
+            </div>
+        </main>
+
+    <!-- Боковая панель промтов -->
+<aside class="prompts-sidebar" id="promptsSidebar">
+    <div class="prompts-header">
+        <h3><i class="fas fa-info-circle"></i> Информация для чата</h3>
+        <div class="header-buttons">
+            <button class="collapse-prompts-btn" onclick="togglePromptsSidebar()">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    <div class="prompts-container">
+        <!-- Личные промты (свернуты по умолчанию) -->
+        <div class="prompts-section">
+            <div class="section-header" onclick="toggleSection('personal')">
+                <h4><i class="fas fa-user"></i> Личные промты</h4>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div id="personalPrompts" class="prompts-list" style="display:none;">
+                <!-- Сюда рендерятся промты -->
+            </div>
+        </div>
+
+        <!-- Общие промты (свернуты по умолчанию) -->
+        <div class="prompts-section">
+            <div class="section-header" onclick="toggleSection('shared')">
+                <h4><i class="fas fa-users"></i> Общие промты</h4>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div id="sharedPrompts" class="prompts-list" style="display:none;">
+                <!-- Сюда рендерятся промты -->
+            </div>
+        </div>
+
+        <!-- Файлы чата -->
+        <div class="prompts-section">
+            <div class="section-header" onclick="toggleSection('files')">
+                   
+        <h4><i class="fas fa-folder"></i> Файлы чата</h4>
+        <i class="fas fa-chevron-down"></i>
+    </div>
+    
+    <!-- Кнопки управления (синие, без градиента, над списком) -->
+    <div class="chat-files-actions">
+        <button class="chat-file-btn btn-add" id="addChatFilesBtn" title="Загрузить новые файлы">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="chat-file-btn btn-delete" id="deleteChatFilesBtn" title="Удалить выбранные">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="chat-file-btn btn-send" id="sendChatFilesBtn" title="Прикрепить к сообщению">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+        <button class="chat-file-btn btn-download" id="downloadChatFilesBtn" title="Скачать выбранные">
+            <i class="fas fa-arrow-down"></i>
+        </button>
+    </div>
+
+    <!-- Список файлов -->
+    <div id="chatFilesList" class="chat-files-list">
+        <div class="empty-files"><p>Нет загруженных файлов</p></div>
+    </div>
+</div>
+
+<!-- Скрытый инпут для выбора файлов -->
+<input type="file" id="chatFileInput" multiple style="display:none;">
+<!-- Скрытый инпут для файлов чата (правая панель) -->
+<input type="file" id="chatFileInput" multiple style="display: none;">
+
+    <script src="main.js"></script>
+    <script src="auth.js"></script>
+    <script src="server_api.js"></script>
+    <script src="api_endpoints.js"></script>
+    <script src="ui.js"></script>
+    <script src="file_handlers.js"></script>
+    <script src="chats.js"></script>
+    <script src="prompts.js"></script>
+    <script src="chat_functions.js"></script>
+    <script src="settings.js"></script>
+</body>
+</html>

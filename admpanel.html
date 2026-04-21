@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Административный интерфейс</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/admpanel.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.1/dist/js.cookie.min.js"></script>
+    <script src="/admpanel.js"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">Панель администратора</div>
+        <div class="header-controls">
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span id="currentUserName"></span>
+                <button class="btn btn-small" id="settingsBtn">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="btn btn-small btn-chat" id="goToChatBtn">
+                    <i class="fas fa-comments"></i> Чат с ИИ
+                </button>
+                <button class="btn btn-small btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+            <button class="theme-toggle" id="themeToggle">
+                <i class="fas fa-moon"></i>
+            </button>
+            <button class="btn btn-login" id="loginBtn">Вход</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs" id="appTabs" style="display: none;">
+            <div class="tab active" data-tab="users">Пользователи</div>
+            <div class="tab" data-tab="auth-log">Журнал авторизации</div>
+            <div class="tab" data-tab="messages">Переписка</div>
+            <div class="tab" data-tab="error-log">Журнал ошибок</div>
+        </div>
+
+        <div class="content">
+            <!-- Вкладка пользователей -->
+            <div class="tab-content active" id="users-tab">
+                <div class="tab-header">
+                    <h2>Пользователи</h2>
+                     <button class="btn" id="addUserBtn" style="display: none;">Добавить нового</button>
+				</div>
+                <div id="usersStatusMessage" class="status-message"></div>
+                <div class="table-container">
+                    <table id="usersTable">
+                        <thead>
+                            <tr>
+                                <th class="hidden">ID</th>
+                                <th>Дата создания</th>
+                                <th>Логин</th>
+                                <th>ФИО</th>
+                                <th>Роль</th>
+                                <th>Активный</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="7" style="text-align: center;">Загрузка данных...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка журнала авторизации -->
+            <div class="tab-content" id="auth-log-tab">
+                <div class="tab-header">
+                    <h2>Журнал авторизации</h2>
+                    <div class="date-filter">
+                        <div class="date-time-input">
+                            <input type="datetime-local" id="authDateFrom" class="datetime-input">
+                        </div>
+                        <span>-</span>
+                        <div class="date-time-input">
+                            <input type="datetime-local" id="authDateTo" class="datetime-input">
+                        </div>
+                        <button class="btn" id="loadAuthLogBtn">Загрузить</button>
+                        <button class="btn btn-small btn-export" id="exportAuthLogBtn" title="Экспорт в CSV">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="authLogStatusMessage" class="status-message"></div>
+                
+                <!-- Фильтры для журнала авторизации -->
+                <div class="filters-panel">
+                    <div class="filter-group">
+                        <input type="text" id="authLogFilterLogin" placeholder="Фильтр по логину..." class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <select id="authLogFilterType" class="filter-select">
+                            <option value="all">Все типы</option>
+                            <option value="token">Токен</option>
+                            <option value="login">Вход</option>
+                            <option value="logout">Выход</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <select id="authLogFilterError" class="filter-select">
+                            <option value="all">Все</option>
+                            <option value="yes">С ошибкой</option>
+                            <option value="no">Без ошибки</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn btn-small" id="applyAuthLogFilters">Применить</button>
+                        <button class="btn btn-small btn-reset" id="resetAuthLogFilters">Сбросить</button>
+                    </div>
+                    <div class="filter-counter" id="authLogCounter">
+                        Найдено: 0 из 0
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="authLogTable" class="small-font">
+                        <thead>
+                            <tr class="small-row">
+                                <th data-column="id" onclick="sortAuthLogTable('id')" class="sortable sort-desc">Номер записи <i class="fas fa-sort"></i></th>
+                                <th data-column="dt" onclick="sortAuthLogTable('dt')" class="sortable">Дата записи <i class="fas fa-sort"></i></th>
+                                <th data-column="type" onclick="sortAuthLogTable('type')" class="sortable">Тип авторизации <i class="fas fa-sort"></i></th>
+                                <th data-column="login" onclick="sortAuthLogTable('login')" class="sortable">Пользователь <i class="fas fa-sort"></i></th>
+                                <th>Пароль</th>
+                                <th data-column="valid" onclick="sortAuthLogTable('valid')" class="sortable">Период действия токена (мин.) <i class="fas fa-sort"></i></th>
+                                <th>Дата создания токена</th>
+                                <th>Описание ошибки</th>
+                                <th>Ошибка</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="small-row">
+                                <td colspan="10" style="text-align: center;">Выберите период и нажмите "Загрузить"</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Вкладка переписки пользователей -->
+            <div class="tab-content" id="messages-tab">
+                <div class="tab-header">
+                    <h2>Переписка пользователей</h2>
+                    <div class="date-filter">
+                        <div class="date-time-input">
+                            <input type="datetime-local" id="msgDateFrom" class="datetime-input">
+                        </div>
+                        <span>-</span>
+                        <div class="date-time-input">
+                            <input type="datetime-local" id="msgDateTo" class="datetime-input">
+                        </div>
+                        <button class="btn" id="loadMessagesBtn">Загрузить чаты</button>
+                        <button class="btn btn-small btn-export" id="exportChatsBtn" title="Экспорт в CSV">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="messagesStatusMessage" class="status-message"></div>
+                
+                <!-- Фильтры для переписки -->
+                <div class="filters-panel">
+                    <div class="filter-group">
+                        <input type="text" id="chatFilterUser" placeholder="Фильтр по пользователю..." class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <select id="chatFilterActive" class="filter-select">
+                            <option value="all">Все чаты</option>
+                            <option value="active">Только активные</option>
+                            <option value="inactive">Только удаленные</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn btn-small" id="applyChatFilters">Применить</button>
+                        <button class="btn btn-small btn-reset" id="resetChatFilters">Сбросить</button>
+                    </div>
+                    <div class="filter-counter" id="chatsCounter">
+                        Найдено: 0 из 0
+                    </div>
+                </div>
+                
+                <div class="split-view">
+                    <div class="split-left">
+                        <div class="table-container">
+                            <table id="chatsTable" class="small-font">
+                                <thead>
+                                    <tr class="small-row">
+                                        <th class="hidden">ID</th>
+                                        <th data-column="dt" onclick="sortChatsTable('dt')" class="sortable sort-desc">Дата создания <i class="fas fa-sort"></i></th>
+                                        <th data-column="user" onclick="sortChatsTable('user')" class="sortable">Пользователь <i class="fas fa-sort"></i></th>
+                                        <th data-column="name" onclick="sortChatsTable('name')" class="sortable">Наименование <i class="fas fa-sort"></i></th>
+                                        <th data-column="active" onclick="sortChatsTable('active')" class="sortable">Состояние <i class="fas fa-sort"></i></th>
+                                        <th data-column="message_count" onclick="sortChatsTable('message_count')" class="sortable">Сообщений <i class="fas fa-sort"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="small-row">
+                                        <td colspan="6" style="text-align: center;">Выберите период и нажмите "Загрузить чаты"</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="split-right">
+                        <div class="messages-area">
+                            <div class="messages-header">
+                                <h3>Сообщения чата: <span id="selectedChatName">-</span></h3>
+                            </div>
+                            <div class="messages-content">
+                                <div class="messages-view" id="messagesView">
+                                    <div style="text-align: center; padding: 20px; color: #999;">
+                                        Выберите чат для просмотра сообщений
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка журнала ошибок -->
+            <div class="tab-content" id="error-log-tab">
+                <div class="tab-header">
+                    <h2>Журнал ошибок</h2>
+                    <button class="btn" id="loadErrorFilesBtn">Загрузить файлы</button>
+                </div>
+                <div id="errorLogStatusMessage" class="status-message"></div>
+                <div class="split-view">
+                    <div class="split-left">
+                        <div class="table-container">
+                            <table id="errorFilesTable" class="medium-font">
+                                <thead>
+                                    <tr class="medium-row">
+                                        <th>Дата создания</th>
+                                        <th>Наименование файла</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="medium-row">
+                                        <td colspan="2" style="text-align: center;">Нажмите "Загрузить файлы"</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="split-right">
+                        <div class="messages-area">
+                            <div class="messages-header">
+                                <h3>Текст файла: <span id="selectedFileName">-</span></h3>
+                                <div class="file-info" id="fileInfo" style="display: none;">
+                                    Размер: <span id="fileSize">  -</span> | Строк: <span id="fileLines">-</span>
+                                </div>
+                            </div>
+                            <div class="messages-content">
+                                <textarea id="errorFileText" readonly placeholder="Выберите файл для просмотра"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Вкладка настроек (аналогичная чату с ИИ) -->
+            <div class="tab-content" id="settings-tab">
+                <div class="tab-header">
+                    <h2>Настройки системы</h2>
+                    <button class="btn btn-back" id="backFromSettingsBtn">
+                        <i class="fas fa-arrow-left"></i> Назад
+                    </button>
+                </div>
+                <div id="settingsStatusMessage" class="status-message"></div>
+                
+                <div class="settings-container">
+                    <!-- Общие настройки -->
+                    <div class="settings-section">
+                        <h3>Общие настройки</h3>
+                        
+                        <div class="settings-group">
+                            <h4>Внешний вид</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Темная тема</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="darkModeToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Размер шрифта</span>
+                                <div class="setting-control">
+                                    <div class="slider-wrapper">
+                                        <span class="slider-value" id="fontSizeValue">16</span>
+                                        <input type="range" id="fontSizeSlider" min="12" max="20" value="16" step="1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Цветовая схема</span>
+                                <div class="setting-control">
+                                    <div class="color-picker">
+                                        <div class="color-option selected" style="background-color: #4a6fa5;" data-color="blue"></div>
+                                        <div class="color-option" style="background-color: #28a745;" data-color="green"></div>
+                                        <div class="color-option" style="background-color: #6f42c1;" data-color="purple"></div>
+                                        <div class="color-option" style="background-color: #fd7e14;" data-color="orange"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки интерфейса -->
+                    <div class="settings-section">
+                        <h3>Настройки интерфейса</h3>
+                        
+                        <div class="settings-group">
+                            <h4>Отображение</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Компактный режим</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="compactModeToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Анимации</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="animationsToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Показывать подсказки</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="tooltipsToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <h4>Поведение</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Автообновление таблиц</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="autoRefreshToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Интервал обновления (сек)</span>
+                                <div class="setting-control">
+                                    <div class="select-wrapper">
+                                        <select id="refreshIntervalSelect">
+                                            <option value="10">10</option>
+                                            <option value="30">30</option>
+                                            <option value="60" selected>60</option>
+                                            <option value="120">120</option>
+                                            <option value="300">300</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки безопасности -->
+                    <div class="settings-section">
+                        <h3>Безопасность</h3>
+                        
+                        <div class="settings-group">
+                            <h4>Сессии</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Автовыход (минут)</span>
+                                <div class="setting-control">
+                                    <div class="select-wrapper">
+                                        <select id="autoLogoutSelect">
+                                            <option value="15">15</option>
+                                            <option value="30" selected>30</option>
+                                            <option value="60">60</option>
+                                            <option value="120">120</option>
+                                            <option value="0">Никогда</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Двухфакторная аутентификация</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="twoFactorToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <h4>Логирование</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Вести журнал действий</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="activityLogToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Уровень логирования</span>
+                                <div class="setting-control">
+                                    <div class="select-wrapper">
+                                        <select id="logLevelSelect">
+                                            <option value="error">Только ошибки</option>
+                                            <option value="warning">Предупреждения и ошибки</option>
+                                            <option value="info" selected>Информационный</option>
+                                            <option value="debug">Отладочный</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки уведомлений -->
+                    <div class="settings-section">
+                        <h3>Уведомления</h3>
+                        
+                        <div class="settings-group">
+                            <h4>Типы уведомлений</h4>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="notifyNewUsers" checked>
+                                    <label for="notifyNewUsers">Новые пользователи</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="notifyAuthEvents" checked>
+                                    <label for="notifyAuthEvents">События авторизации</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="notifyErrors" checked>
+                                    <label for="notifyErrors">Критические ошибки</label>
+                                </div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="notifySystemEvents">
+                                    <label for="notifySystemEvents">Системные события</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <h4>Способ оповещения</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Звуковые уведомления</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="soundNotificationsToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Громкость уведомлений</span>
+                                <div class="setting-control">
+                                    <div class="slider-wrapper">
+                                        <span class="slider-value" id="volumeValue">70</span>
+                                        <input type="range" id="volumeSlider" min="0" max="100" value="70" step="5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки данных -->
+                    <div class="settings-section">
+                        <h3>Настройки данных</h3>
+                        
+                        <div class="settings-group">
+                            <h4>Хранение данных</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Автосохранение</span>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="autoSaveToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Интервал автосохранения (мин)</span>
+                                <div class="setting-control">
+                                    <div class="select-wrapper">
+                                        <select id="autoSaveIntervalSelect">
+                                            <option value="1">1</option>
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="15">15</option>
+                                            <option value="30">30</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <h4>Экспорт/Импорт</h4>
+                            <div class="setting-item">
+                                <span class="setting-label">Формат экспорта</span>
+                                <div class="setting-control">
+                                    <div class="select-wrapper">
+                                        <select id="exportFormatSelect">
+                                            <option value="json">JSON</option>
+                                            <option value="csv" selected>CSV</option>
+                                            <option value="excel">Excel</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-actions">
+                        <button class="btn btn-reset" id="resetSettingsBtn">
+                            <i class="fas fa-undo"></i> Сбросить
+                        </button>
+                        <button class="btn btn-save" id="saveSettingsBtn">
+                            <i class="fas fa-save"></i> Сохранить настройки
+                        </button>
+                    </div>
+                    
+                    <div class="settings-note">
+                        * Настройки сохраняются в локальном хранилище браузера
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Диалог входа -->
+    <div class="dialog" id="loginDialog">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <div class="dialog-title">Вход в систему</div>
+                <button class="close-btn" id="closeLoginBtn">&times;</button>
+            </div>
+            <div id="loginStatusMessage" class="status-message"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Логин</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" id="cancelLoginBtn">Отмена</button>
+                    <button type="submit" class="btn" id="loginSubmitBtn">Войти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Диалог редактирования пользователя -->
+    <div class="dialog" id="editUserDialog">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <div class="dialog-title">Редактирование пользователя</div>
+                <button class="close-btn" id="closeEditUserBtn">&times;</button>
+            </div>
+            <div id="editUserStatusMessage" class="status-message"></div>
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label for="editLogin">Логин</label>
+                    <input type="text" id="editLogin" readonly style="background-color: var(--table-header);">
+                </div>
+                <div class="form-group">
+                    <label for="editFullName">ФИО</label>
+                    <input type="text" id="editFullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRole">Роль</label>
+                    <select id="editRole" required>
+                        <option value="admin">Администратор</option>
+                        <option value="user">Пользователь</option>
+                        <option value="moderator">Модератор</option>
+                        <option value="guest">Гость</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" id="cancelEditUserBtn">Отмена</button>
+                    <button type="submit" class="btn" id="editUserSubmitBtn">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Диалог смены пароля -->
+    <div class="dialog" id="changePasswordDialog">
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <div class="dialog-title">Смена пароля</div>
+                <button class="close-btn" id="closeChangePasswordBtn">&times;</button>
+            </div>
+            <div id="changePasswordStatusMessage" class="status-message"></div>
+            <form id="changePasswordForm">
+                <input type="hidden" id="passwordUserId">
+                <div class="form-group">
+                    <label for="passwordUserLogin">Логин пользователя</label>
+                    <input type="text" id="passwordUserLogin" readonly style="background-color: var(--table-header);">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Новый пароль</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Подтвердите пароль</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" id="cancelChangePasswordBtn">Отмена</button>
+                    <button type="submit" class="btn" id="changePasswordSubmitBtn">Изменить пароль</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Диалог добавления пользователя -->
+    <div class="dialog" id="addUserDialog">
+        <div class="dialog-content dialog-content-wide">
+            <div class="dialog-header">
+                <div class="dialog-title">Добавление пользователя</div>
+                <button class="close-btn" id="closeAddUserBtn">&times;</button>
+            </div>
+            <div id="addUserStatusMessage" class="status-message"></div>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label for="addLogin">Логин *</label>
+                    <input type="text" id="addLogin" required>
+                </div>
+                <div class="form-group">
+                    <label for="addFullName">ФИО</label>
+                    <input type="text" id="addFullName">
+                </div>
+                <div class="form-group">
+                    <label for="addRole">Роль *</label>
+                    <select id="addRole" required>
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                        <option value="moderator">Модератор</option>
+                        <option value="guest">Гость</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="addPassword">Пароль *</label>
+                    <input type="password" id="addPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="addConfirmPassword">Подтвердите пароль *</label>
+                    <input type="password" id="addConfirmPassword" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" id="cancelAddUserBtn">Отмена</button>
+                    <button type="submit" class="btn" id="addUserSubmitBtn">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

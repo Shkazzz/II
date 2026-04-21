@@ -1,3 +1,23 @@
-The provided input shows only a modified file named 'II' which appears to be a source/config file. Since there are no build artifacts, dependencies, temporary files, or other ignorable items in the changes, and the modification is to what appears to be a source file, no entries need to be added to the .gitignore file.
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
 
-Therefore, the output is empty.
+# Dependencies
+.venv/
+venv/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+```
